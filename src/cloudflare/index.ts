@@ -124,9 +124,15 @@ export class DeviceAgent<TEnv extends Cloudflare.Env = Cloudflare.Env> extends A
 }
 
 /**
- * Route any `/devices/<id>/*` request to the matching `DeviceAgent` instance.
- * Returns the response, or `null` if the path doesn't match — so the caller
- * can chain other routing.
+ * Route a Resident-protocol request to its handler:
+ *
+ *   - `/devices/<id>/*` → the matching `DeviceAgent` instance.
+ *   - `GET | HEAD /` → 200 `Resident relay`, so [Courier](https://github.com/inanimate-tech/courier)'s
+ *     HTTP-`Date` time-sync fallback has something to read before NTP catches
+ *     up. (Without a 200 here, devices fail to bootstrap their wall clock.)
+ *
+ * Returns the response, or `null` if nothing canonical matches — the caller
+ * can then chain its own routing or fall through to a 404.
  *
  * @example
  *   import { routeDeviceRequest } from "@inanimate/resident/cloudflare"
@@ -144,6 +150,15 @@ export async function routeDeviceRequest<T extends DeviceAgent>(
   namespace: DurableObjectNamespace<T>,
 ): Promise<Response | null> {
   const url = new URL(request.url)
+  if (
+    url.pathname === "/" &&
+    (request.method === "GET" || request.method === "HEAD")
+  ) {
+    return new Response("Resident relay\n", {
+      status: 200,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    })
+  }
   if (!url.pathname.startsWith("/devices/")) return null
   const deviceId = url.pathname.split("/")[2]
   if (!deviceId) return new Response("Device ID required", { status: 400 })

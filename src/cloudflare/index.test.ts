@@ -36,9 +36,28 @@ describe("routeDeviceRequest", () => {
     expect(res).toBeNull()
   })
 
-  it("returns null for the root path", async () => {
+  it("returns 200 OK on GET / so Courier's HTTP-Date time-sync works", async () => {
     const res = await routeDeviceRequest(
       new Request("https://example.com/"),
+      fakeNamespace,
+    )
+    expect(res).not.toBeNull()
+    expect(res!.status).toBe(200)
+    expect(res!.headers.get("Content-Type")).toContain("text/plain")
+  })
+
+  it("returns 200 OK on HEAD / (what Courier actually sends)", async () => {
+    const res = await routeDeviceRequest(
+      new Request("https://example.com/", { method: "HEAD" }),
+      fakeNamespace,
+    )
+    expect(res).not.toBeNull()
+    expect(res!.status).toBe(200)
+  })
+
+  it("returns null on a non-GET/HEAD request to /", async () => {
+    const res = await routeDeviceRequest(
+      new Request("https://example.com/", { method: "POST" }),
       fakeNamespace,
     )
     expect(res).toBeNull()
